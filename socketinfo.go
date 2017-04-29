@@ -5,6 +5,7 @@
 package socketinfo
 
 import (
+	"errors"
 	"syscall"
 )
 
@@ -26,3 +27,41 @@ const (
 	IPv4        ProtocolFamily = syscall.AF_INET  // Internet Protocol v4
 	IPv6        ProtocolFamily = syscall.AF_INET6 // Internet Protocol v6
 )
+
+type SocketInfo struct {
+	fd int
+}
+
+var ErrNotSocket = errors.New("not a socket")
+
+func New(fd int) SocketInfo {
+	return SocketInfo{fd}
+}
+
+func (s *SocketInfo) getSockOpt(opt int) (val int, err error) {
+	val, err = syscall.GetsockoptInt(s.fd, syscall.SOL_SOCKET, opt)
+	if err == nil && val < 0 {
+		err = ErrNotSocket
+	}
+	return
+}
+
+func (s *SocketInfo) Listening() (listening bool, err error) {
+	val, err := s.getSockOpt(syscall.SO_ACCEPTCONN)
+	if err != nil {
+		return
+	}
+
+	listening = (val > 0)
+	return
+}
+
+func (s *SocketInfo) Type() (st SocketType, err error) {
+	val, err := s.getSockOpt(syscall.SO_TYPE)
+	if err != nil {
+		return
+	}
+
+	st = SocketType(val)
+	return
+}
